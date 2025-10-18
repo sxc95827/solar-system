@@ -79,6 +79,14 @@ The dashboard will automatically open in your web browser at `http://localhost:8
 
 The system uses three interconnected datasets that accurately represent real-world solar panel operations:
 
+### 📦 Data Archive
+
+For submission and distribution purposes, all datasets are also available as a compressed archive:
+- **File:** `solar_qc_system/data.zip`
+- **Contents:** Complete dataset collection including all CSV files
+- **Size:** Compressed for efficient storage and transfer
+- **Usage:** Extract to `solar_qc_system/data/` directory to use with the system
+
 ### 1. Panel Performance Data (`panel_performance.csv`)
 
 **Purpose:** Real-time monitoring of individual solar panel performance metrics
