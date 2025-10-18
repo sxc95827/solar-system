@@ -29,7 +29,6 @@ import logging
 from typing import Dict, List, Optional
 
 # Import our custom modules
-from data_generator import SolarDataGenerator
 from six_sigma_analysis import SixSigmaAnalysisEngine
 from config import *
 from utils import setup_logging, save_dataframe, load_dataframe
@@ -96,12 +95,11 @@ class SolarQCDashboard:
     """Main dashboard class for the Solar QC System"""
     
     def __init__(self):
-        self.data_generator = SolarDataGenerator()
         self.analysis_engine = SixSigmaAnalysisEngine()
         
         # Initialize session state
-        if 'data_generated' not in st.session_state:
-            st.session_state.data_generated = False
+        if 'data_loaded' not in st.session_state:
+            st.session_state.data_loaded = False
         if 'analysis_results' not in st.session_state:
             st.session_state.analysis_results = {}
         if 'datasets' not in st.session_state:
@@ -122,21 +120,6 @@ class SolarQCDashboard:
         
         # Data Management Section
         with st.sidebar.expander("📊 Data Management", expanded=True):
-            st.markdown("### Generate Synthetic Data")
-            
-            col1, col2 = st.columns(2)
-            with col1:
-                num_panels = st.number_input("Number of Panels", 
-                                           min_value=100, max_value=5000, 
-                                           value=1000, step=100)
-            with col2:
-                num_failures = st.number_input("Number of Failures", 
-                                             min_value=50, max_value=1000, 
-                                             value=200, step=50)
-            
-            if st.button("🔄 Generate New Data", type="primary"):
-                self.generate_data(num_panels, num_failures)
-            
             # File upload option
             st.markdown("### Upload Your Data")
             uploaded_files = st.file_uploader(
@@ -147,6 +130,10 @@ class SolarQCDashboard:
             
             if uploaded_files:
                 self.handle_file_upload(uploaded_files)
+            
+            # Load existing data button
+            if st.button("📂 Load Existing Data", type="primary"):
+                self.load_existing_data()
         
         # Analysis Options
         with st.sidebar.expander("🔍 Analysis Options", expanded=True):
@@ -159,12 +146,12 @@ class SolarQCDashboard:
                 default=["SPC Control Charts", "Process Capability", "Pareto Analysis"]
             )
             
-            if st.button("🚀 Run Analysis") and st.session_state.data_generated:
+            if st.button("🚀 Run Analysis") and st.session_state.data_loaded:
                 self.run_analysis(analysis_options)
         
         # Export Options
         with st.sidebar.expander("💾 Export Options"):
-            if st.session_state.data_generated:
+            if st.session_state.data_loaded:
                 if st.button("📥 Download Generated Data"):
                     self.download_data()
                 
@@ -172,31 +159,64 @@ class SolarQCDashboard:
                     if st.button("📊 Download Analysis Report"):
                         self.download_report()
     
-    def generate_data(self, num_panels: int, num_failures: int):
-        """Generate synthetic data"""
+    def load_existing_data(self):
+        """Load existing data from CSV files"""
         try:
-            with st.spinner("Generating synthetic data..."):
-                # Generate datasets
-                panel_data = self.data_generator.generate_panel_performance_data(num_panels)
-                failure_data = self.data_generator.generate_failure_events_data(num_failures)
-                environmental_data = self.data_generator.generate_environmental_data()
-                
-                # Store in session state
-                st.session_state.datasets = {
-                    'panel_performance': panel_data,
-                    'failure_events': failure_data,
-                    'environmental_data': environmental_data
-                }
-                st.session_state.data_generated = True
-                
-                st.success(f"✅ Successfully generated data for {num_panels} panels and {num_failures} failure events!")
-                
-                # Show data preview
-                self.show_data_preview()
-                
+            logger.info("Starting data loading process...")
+            data_dir = Path("data")
+            if not data_dir.exists():
+                logger.error(f"Data directory not found: {data_dir}")
+                st.error("❌ Data directory not found. Please generate data first using: python main.py --generate-data")
+                return
+            
+            logger.info(f"Data directory found: {data_dir}")
+            
+            # Expected data files
+            expected_files = {
+                'panel_performance': 'panel_performance.csv',
+                'failure_events': 'failure_events.csv', 
+                'environmental_data': 'environmental_data.csv'
+            }
+            
+            datasets = {}
+            missing_files = []
+            
+            for dataset_name, filename in expected_files.items():
+                file_path = data_dir / filename
+                logger.info(f"Checking file: {file_path}")
+                if file_path.exists():
+                    logger.info(f"Loading dataset: {dataset_name} from {file_path}")
+                    df = load_dataframe(str(file_path))
+                    logger.info(f"Dataset {dataset_name} loaded successfully - Shape: {df.shape}, Columns: {list(df.columns)}")
+                    logger.info(f"Dataset {dataset_name} data types: {df.dtypes.to_dict()}")
+                    logger.info(f"Dataset {dataset_name} null values: {df.isnull().sum().to_dict()}")
+                    datasets[dataset_name] = df
+                else:
+                    logger.warning(f"File not found: {file_path}")
+                    missing_files.append(filename)
+            
+            if missing_files:
+                logger.error(f"Missing files: {missing_files}")
+                st.warning(f"⚠️ Missing data files: {', '.join(missing_files)}. Please generate data first using: python main.py --generate-data")
+                return
+            
+            # Store in session state
+            logger.info(f"Storing {len(datasets)} datasets in session state")
+            st.session_state.datasets = datasets
+            st.session_state.data_loaded = True
+            
+            # Debug session state
+            logger.info(f"Session state datasets keys: {list(st.session_state.datasets.keys())}")
+            logger.info(f"Session state data_loaded: {st.session_state.data_loaded}")
+            
+            st.success("✅ Successfully loaded existing data!")
+            
+            # Show data preview
+            self.show_data_preview()
+            
         except Exception as e:
-            st.error(f"❌ Error generating data: {str(e)}")
-            logger.error(f"Data generation error: {e}")
+            logger.error(f"Data loading error: {e}", exc_info=True)
+            st.error(f"❌ Error loading data: {str(e)}")
     
     def handle_file_upload(self, uploaded_files):
         """Handle uploaded CSV files"""
@@ -210,7 +230,7 @@ class SolarQCDashboard:
                 st.sidebar.success(f"✅ Loaded {file.name}")
             
             st.session_state.datasets = datasets
-            st.session_state.data_generated = True
+            st.session_state.data_loaded = True
             
             self.show_data_preview()
             
@@ -223,7 +243,7 @@ class SolarQCDashboard:
         st.markdown("## 📋 Data Preview")
         
         if not st.session_state.datasets:
-            st.warning("No data available. Please generate or upload data first.")
+            st.warning("No data available. Please load existing data or upload CSV files first.")
             return
         
         tabs = st.tabs(list(st.session_state.datasets.keys()))
@@ -244,33 +264,99 @@ class SolarQCDashboard:
                 
                 with col1:
                     st.markdown("### Data Types")
-                    st.dataframe(df.dtypes.to_frame('Type'), use_container_width=True)
+                    # Convert dtypes to string to avoid Arrow serialization issues
+                    dtypes_df = df.dtypes.to_frame('Type')
+                    dtypes_df['Type'] = dtypes_df['Type'].astype(str)
+                    st.dataframe(dtypes_df, width='stretch')
                 
                 with col2:
                     st.markdown("### Basic Statistics")
-                    st.dataframe(df.describe(), use_container_width=True)
+                    st.dataframe(df.describe(), width='stretch')
                 
-                # Show sample data
+                # Show sample data with proper datetime formatting
                 st.markdown("### Sample Data")
-                st.dataframe(df.head(10), use_container_width=True)
+                display_df = df.head(10).copy()
+                
+                # Convert datetime columns to string to avoid Arrow conversion issues
+                for col in display_df.columns:
+                    if display_df[col].dtype == 'object':
+                        try:
+                            # Try to convert to datetime and then to string with explicit format
+                            # Check if it looks like a date column
+                            if any(keyword in col.lower() for keyword in ['date', 'time', 'timestamp']):
+                                temp_series = pd.to_datetime(display_df[col], format='%Y-%m-%d', errors='coerce')
+                                if not temp_series.isna().all():  # If at least some dates were parsed
+                                    display_df[col] = temp_series.dt.strftime('%Y-%m-%d')
+                        except:
+                            # If conversion fails, keep as is
+                            pass
+                
+                st.dataframe(display_df, width='stretch')
     
     def run_analysis(self, analysis_options: List[str]):
         """Run selected analyses"""
-        if not st.session_state.data_generated:
-            st.error("❌ No data available. Please generate or upload data first.")
+        logger.info(f"Starting analysis with options: {analysis_options}")
+        
+        if not st.session_state.data_loaded:
+            st.error("❌ No data available. Please load existing data or upload CSV files first.")
+            logger.warning("No data loaded when trying to run analysis")
             return
         
         try:
             with st.spinner("Running Six Sigma analysis..."):
                 datasets = st.session_state.datasets
+                logger.info(f"Available datasets: {list(datasets.keys()) if datasets else 'None'}")
+                
+                # Check if we have the required datasets
+                if not datasets:
+                    st.error("❌ No datasets available. Please load data first.")
+                    logger.error("No datasets available in session state")
+                    return
+                
+                # Log dataset shapes for debugging
+                for name, df in datasets.items():
+                    if isinstance(df, pd.DataFrame):
+                        logger.info(f"Dataset {name}: shape={df.shape}, columns={list(df.columns)}")
+                    else:
+                        logger.warning(f"Dataset {name} is not a DataFrame: type={type(df)}")
                 
                 # Run comprehensive analysis
+                logger.info("Calling run_comprehensive_analysis...")
                 results = self.analysis_engine.run_comprehensive_analysis(
                     panel_data=datasets.get('panel_performance', pd.DataFrame()),
                     failure_data=datasets.get('failure_events', pd.DataFrame()),
                     environmental_data=datasets.get('environmental_data', pd.DataFrame())
                 )
                 
+                logger.info(f"Analysis engine returned: type={type(results)}, value={results}")
+                
+                # Ensure results is not None
+                if results is None:
+                    st.error("❌ Analysis returned no results. Please check the data and try again.")
+                    logger.error("Analysis engine returned None - this is the root cause of the NoneType error")
+                    return
+                
+                # Check for errors in results
+                if isinstance(results, dict):
+                    if 'error' in results:
+                        st.error(f"❌ Analysis Error: {results.get('message', 'Unknown error')}")
+                        logger.error(f"Analysis engine error: {results.get('error', 'Unknown')}")
+                        if 'traceback' in results:
+                            with st.expander("Error Details"):
+                                st.code(results['traceback'])
+                        return
+                    
+                    # Check if analysis was successful
+                    if not results.get('success', False):
+                        st.error(f"❌ Analysis failed: {results.get('message', 'Analysis was not successful')}")
+                        logger.error(f"Analysis not successful: {results}")
+                        return
+                else:
+                    st.error("❌ Analysis returned unexpected result format.")
+                    logger.error(f"Unexpected result type: {type(results)}")
+                    return
+                
+                logger.info("Analysis completed successfully, storing results")
                 st.session_state.analysis_results = results
                 
                 st.success("✅ Analysis completed successfully!")
@@ -281,6 +367,8 @@ class SolarQCDashboard:
         except Exception as e:
             st.error(f"❌ Error running analysis: {str(e)}")
             logger.error(f"Analysis error: {e}")
+            import traceback
+            logger.error(f"Full traceback: {traceback.format_exc()}")
     
     def show_analysis_results(self, analysis_options: List[str]):
         """Display analysis results"""
@@ -376,11 +464,17 @@ class SolarQCDashboard:
                 col1, col2, col3 = st.columns(3)
                 
                 with col1:
-                    st.metric("Upper Control Limit", f"{limits.get('UCL', 0):.3f}")
+                    ucl = limits.get('UCL', 0)
+                    ucl = 0 if ucl is None else ucl
+                    st.metric("Upper Control Limit", f"{ucl:.3f}")
                 with col2:
-                    st.metric("Center Line", f"{limits.get('CL', 0):.3f}")
+                    cl = limits.get('CL', 0)
+                    cl = 0 if cl is None else cl
+                    st.metric("Center Line", f"{cl:.3f}")
                 with col3:
-                    st.metric("Lower Control Limit", f"{limits.get('LCL', 0):.3f}")
+                    lcl = limits.get('LCL', 0)
+                    lcl = 0 if lcl is None else lcl
+                    st.metric("Lower Control Limit", f"{lcl:.3f}")
             
             if 'efficiency_patterns' in results:
                 patterns = results['efficiency_patterns']
@@ -402,13 +496,21 @@ class SolarQCDashboard:
                 col1, col2, col3, col4 = st.columns(4)
                 
                 with col1:
-                    st.metric("Cp", f"{indices.get('Cp', 0):.3f}")
+                    cp = indices.get('Cp', 0)
+                    cp = 0 if cp is None else cp
+                    st.metric("Cp", f"{cp:.3f}")
                 with col2:
-                    st.metric("Cpk", f"{indices.get('Cpk', 0):.3f}")
+                    cpk = indices.get('Cpk', 0)
+                    cpk = 0 if cpk is None else cpk
+                    st.metric("Cpk", f"{cpk:.3f}")
                 with col3:
-                    st.metric("Pp", f"{indices.get('Pp', 0):.3f}")
+                    pp = indices.get('Pp', 0)
+                    pp = 0 if pp is None else pp
+                    st.metric("Pp", f"{pp:.3f}")
                 with col4:
-                    st.metric("Ppk", f"{indices.get('Ppk', 0):.3f}")
+                    ppk = indices.get('Ppk', 0)
+                    ppk = 0 if ppk is None else ppk
+                    st.metric("Ppk", f"{ppk:.3f}")
         
         elif analysis_type == "Pareto Analysis":
             st.markdown("### Pareto Analysis - Failure Modes")
@@ -430,11 +532,17 @@ class SolarQCDashboard:
                 col1, col2, col3 = st.columns(3)
                 
                 with col1:
-                    st.metric("MTBF (Hours)", f"{metrics.get('MTBF_hours', 0):.1f}")
+                    mtbf = metrics.get('MTBF_hours', 0)
+                    mtbf = 0 if mtbf is None else mtbf
+                    st.metric("MTBF (Hours)", f"{mtbf:.1f}")
                 with col2:
-                    st.metric("MTTR (Hours)", f"{metrics.get('MTTR_hours', 0):.1f}")
+                    mttr = metrics.get('MTTR_hours', 0)
+                    mttr = 0 if mttr is None else mttr
+                    st.metric("MTTR (Hours)", f"{mttr:.1f}")
                 with col3:
-                    st.metric("Availability (%)", f"{metrics.get('availability_percent', 0):.1f}")
+                    availability = metrics.get('availability_percent', 0)
+                    availability = 0 if availability is None else availability
+                    st.metric("Availability (%)", f"{availability:.1f}")
             
             if 'reliability_trend' in results:
                 st.plotly_chart(results['reliability_trend'], use_container_width=True)
@@ -448,11 +556,17 @@ class SolarQCDashboard:
                 col1, col2, col3 = st.columns(3)
                 
                 with col1:
-                    st.metric("Total Repair Cost", f"${metrics.get('total_repair_cost', 0):,.2f}")
+                    total_cost = metrics.get('total_repair_cost', 0)
+                    total_cost = 0 if total_cost is None else total_cost
+                    st.metric("Total Repair Cost", f"${total_cost:,.2f}")
                 with col2:
-                    st.metric("Average Repair Cost", f"${metrics.get('avg_repair_cost', 0):,.2f}")
+                    avg_cost = metrics.get('avg_repair_cost', 0)
+                    avg_cost = 0 if avg_cost is None else avg_cost
+                    st.metric("Average Repair Cost", f"${avg_cost:,.2f}")
                 with col3:
-                    st.metric("Max Repair Cost", f"${metrics.get('max_repair_cost', 0):,.2f}")
+                    max_cost = metrics.get('max_repair_cost', 0)
+                    max_cost = 0 if max_cost is None else max_cost
+                    st.metric("Max Repair Cost", f"${max_cost:,.2f}")
             
             if 'cost_dashboard' in results:
                 st.plotly_chart(results['cost_dashboard'], use_container_width=True)
@@ -529,7 +643,7 @@ EXECUTIVE SUMMARY
         self.render_sidebar()
         
         # Main content area
-        if not st.session_state.data_generated:
+        if not st.session_state.data_loaded:
             st.markdown("""
             ## 🚀 Welcome to the Solar Panel Quality Control System
             
@@ -537,7 +651,7 @@ EXECUTIVE SUMMARY
             solar panel performance and reliability for utility-scale installations.
             
             ### Getting Started:
-            1. **Generate synthetic data** or **upload your own CSV files** using the sidebar
+            1. **Load existing data** or **upload your own CSV files** using the sidebar
             2. **Select analysis types** you want to run
             3. **Click "Run Analysis"** to generate insights
             4. **Review results** and implement recommendations
@@ -553,6 +667,10 @@ EXECUTIVE SUMMARY
             - **Panel Performance Data**: Efficiency, power output, temperature, age
             - **Failure Events Data**: Failure types, repair costs, downtime
             - **Environmental Data**: Weather conditions, irradiance, humidity
+            
+            ### Note:
+            Sample datasets have been pre-generated. Use the "📂 Load Existing Data" button 
+            in the sidebar to load them, or upload your own CSV files.
             """)
         else:
             # Show data preview and analysis results

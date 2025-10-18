@@ -274,11 +274,35 @@ class SolarDataGenerator:
                 
                 # Generate failure details
                 severity_level = np.random.randint(*failure_info['severity_range'])
-                repair_cost = np.random.uniform(*failure_info['repair_cost_range'])
                 
-                # Downtime depends on severity and failure type
+                # Base repair cost from configuration
+                base_repair_cost = np.random.uniform(*failure_info['repair_cost_range'])
+                
+                # Downtime depends on severity and failure type (more realistic)
                 base_downtime = {1: 2, 2: 8, 3: 24, 4: 72, 5: 168}[severity_level]
                 downtime_hours = max(1, int(np.random.normal(base_downtime, base_downtime * 0.3)))
+                
+                # Realistic cost calculation based on first principles:
+                # 1. Base repair cost (parts/materials)
+                # 2. Labor cost (proportional to downtime)
+                # 3. Lost revenue cost (proportional to downtime and panel capacity)
+                # 4. Severity multiplier
+                
+                # Labor cost: $50/hour for technician time
+                labor_cost = downtime_hours * 50
+                
+                # Lost revenue: assume 0.4kW panel, $0.10/kWh, 8 hours peak sun
+                daily_revenue = 0.4 * 8 * 0.10  # $0.32 per day
+                lost_revenue = (downtime_hours / 24) * daily_revenue
+                
+                # Severity multiplier for complexity
+                severity_multiplier = {1: 1.0, 2: 1.2, 3: 1.5, 4: 2.0, 5: 3.0}[severity_level]
+                
+                # Total realistic repair cost
+                total_repair_cost = (base_repair_cost + labor_cost + lost_revenue) * severity_multiplier
+                
+                # Add some randomness but keep it realistic
+                repair_cost = max(50, total_repair_cost * np.random.uniform(0.8, 1.2))
                 
                 # Repair date
                 repair_date = failure_date + timedelta(hours=downtime_hours)
@@ -319,6 +343,7 @@ class SolarDataGenerator:
                     'detection_method': detection_method,
                     'repair_cost_usd': round(repair_cost, 2),
                     'downtime_hours': downtime_hours,
+                    'repair_time_hours': downtime_hours,  # Add repair_time_hours for MTTR calculation
                     'repair_date': repair_date.date(),
                     'root_cause': root_cause,
                     'preventable': preventable,

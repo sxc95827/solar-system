@@ -1,18 +1,18 @@
-# ☀️ Solar Panel Quality Control System
+# Solar Panel Quality Control System
 
-**Six Sigma Analysis for Utility-Scale Solar Power Plants**
+**Six Sigma-Based Quality Analysis System for Utility-Scale Solar Power Plants**
 
-A comprehensive quality control system designed for NYSERDA (New York State Energy Research and Development Authority) to track, analyze, and mitigate solar panel failures using advanced Six Sigma methodologies.
+This is a comprehensive quality control system designed for NYSERDA (New York State Energy Research and Development Authority) that uses advanced Six Sigma methodologies to track, analyze, and mitigate solar panel failures.
 
 ## 🎯 Project Overview
 
-This system addresses the critical need for proactive quality control in utility-scale solar installations by providing:
+The system addresses the critical need for proactive quality control in large-scale solar installations by providing:
 
 - **Real-time monitoring** of solar panel performance
 - **Statistical Process Control (SPC)** for early failure detection  
 - **Process capability analysis** to ensure performance standards
 - **Pareto analysis** to identify critical failure modes
-- **Reliability analysis** with MTBF/MTTR calculations
+- **Reliability analysis** including MTBF/MTTR calculations
 - **Cost analysis** for ROI optimization
 - **Interactive dashboard** for stakeholder reporting
 
@@ -23,7 +23,7 @@ solar_qc_system/
 ├── __init__.py              # Package initialization
 ├── config.py                # System configuration and constants
 ├── utils.py                 # Utility functions and helpers
-├── data_generator.py        # Synthetic data generation
+├── data_generator.py        # Synthetic data generator
 ├── six_sigma_analysis.py    # Core Six Sigma analysis engine
 ├── dashboard.py             # Streamlit web interface
 ├── main.py                  # Main application entry point

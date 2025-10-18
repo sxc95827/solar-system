@@ -40,15 +40,57 @@ ENVIRONMENTAL_PARAMS = {
     "weather_conditions": ["sunny", "partly_cloudy", "cloudy", "rainy"],
 }
 
-# Failure Types and Probabilities
+# Failure Types and Probabilities (Updated with realistic cost ranges)
 FAILURE_TYPES = {
-    "hot_spots": {"probability": 0.25, "severity_range": (2, 4), "repair_cost_range": (200, 800)},
-    "micro_cracks": {"probability": 0.20, "severity_range": (1, 3), "repair_cost_range": (150, 600)},
-    "connector_failure": {"probability": 0.15, "severity_range": (2, 5), "repair_cost_range": (100, 400)},
-    "inverter_issues": {"probability": 0.15, "severity_range": (3, 5), "repair_cost_range": (500, 2000)},
-    "soiling": {"probability": 0.10, "severity_range": (1, 2), "repair_cost_range": (50, 200)},
-    "corrosion": {"probability": 0.08, "severity_range": (2, 4), "repair_cost_range": (300, 1200)},
-    "electrical_degradation": {"probability": 0.07, "severity_range": (3, 5), "repair_cost_range": (400, 1500)},
+    "hot_spots": {
+        "probability": 0.25, 
+        "severity_range": (2, 4), 
+        "repair_cost_range": (100, 400),  # Materials only - labor/revenue added separately
+        "typical_causes": ["manufacturing_defect", "soiling", "shading"],
+        "prevention_difficulty": "medium"
+    },
+    "micro_cracks": {
+        "probability": 0.20, 
+        "severity_range": (1, 3), 
+        "repair_cost_range": (80, 300),   # Lower material cost, mainly inspection/replacement
+        "typical_causes": ["thermal_stress", "mechanical_stress", "manufacturing_defect"],
+        "prevention_difficulty": "hard"
+    },
+    "connector_failure": {
+        "probability": 0.15, 
+        "severity_range": (2, 5), 
+        "repair_cost_range": (50, 200),   # Relatively cheap parts, but can cause major issues
+        "typical_causes": ["corrosion", "loose_connection", "manufacturing_defect"],
+        "prevention_difficulty": "easy"
+    },
+    "inverter_issues": {
+        "probability": 0.15, 
+        "severity_range": (3, 5), 
+        "repair_cost_range": (300, 1500), # Most expensive component replacement
+        "typical_causes": ["component_failure", "overheating", "power_surge"],
+        "prevention_difficulty": "medium"
+    },
+    "soiling": {
+        "probability": 0.10, 
+        "severity_range": (1, 2), 
+        "repair_cost_range": (20, 100),   # Mainly cleaning costs
+        "typical_causes": ["dust_accumulation", "bird_droppings", "pollen"],
+        "prevention_difficulty": "easy"
+    },
+    "corrosion": {
+        "probability": 0.08, 
+        "severity_range": (2, 4), 
+        "repair_cost_range": (150, 600),  # Replacement of corroded parts
+        "typical_causes": ["moisture_ingress", "salt_exposure", "material_degradation"],
+        "prevention_difficulty": "medium"
+    },
+    "electrical_degradation": {
+        "probability": 0.07, 
+        "severity_range": (3, 5), 
+        "repair_cost_range": (200, 800),  # Complex electrical repairs
+        "typical_causes": ["aging", "thermal_cycling", "uv_exposure"],
+        "prevention_difficulty": "hard"
+    },
 }
 
 # Six Sigma Control Limits
